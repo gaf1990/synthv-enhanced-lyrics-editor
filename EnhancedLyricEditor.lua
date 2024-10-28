@@ -36,8 +36,8 @@ function main()
             },
             {
                 name = "pr", type = "CheckBox",
-                text = "Show preview",
-                default = false
+                text = "Only preview",
+                default = true
             },
             {
                 name = "le", type = "TextArea",
