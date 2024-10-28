@@ -12,7 +12,7 @@ end
 
 function main()
     local OS = determine_OS()
-    local script_folder_name = determine_scriptFolder(OS)
+    script_folder_name = determine_scriptFolder(OS)
     fileName = script_folder_name .. "\\" .. "enhanced-lyric-editor.log"
     log("OS: " .. OS)
 
@@ -25,8 +25,14 @@ function main()
             {
                 name = "op", type = "ComboBox",
                 label = "Operation",
-                choices = {"Sillabate words"},
-                default = 2
+                choices = {"Sillabate words (from combination to com-bi-na-tion)", "Wrap words (from com-bi-na-tion to combination + + + )"},
+                default = 0
+            },
+            {
+                name = "la", type = "ComboBox",
+                label = "Target Language",
+                choices = {"English", "Japanese", "Spanish", "Mandarine","Cantonese"},
+                default = 0
             },
             {
                 name = "pr", type = "CheckBox",
@@ -43,19 +49,37 @@ function main()
         }
     }
     local currentLyrics = retrieveLyrics()
+    log("Selected lyrics is " .. currentLyrics)
     showRecursivelyCustomDialog(lyricEditor, currentLyrics)
 end
 
 function showRecursivelyCustomDialog(lyricEditor,text)
-    lyricEditor.widgets[3].default = text
-
+    lyricEditor.widgets[4].default = text
     local result = SV:showCustomDialog(lyricEditor)
     if tostring(result.status) == "true" then
-        local cleanedLyrics = result.answers.le:gsub("\n", "")
+        local originalLyrics = result.answers.le
+        local newLyrics = originalLyrics
+        if result.answers.op == 0 then
+            local langCodes = { "EN","JAP","SPA","MAN","CAN" }
+            local language = langCodes[result.answers.la + 1]
+            if string.find(text, "%+") then
+                SV:showOkCancelBox("Sillabation",
+                        "Found \"+\" inside text. Please remove it before sillabating");
+            else
+                newLyrics = tokenizeLyrics(language, originalLyrics)
+            end
+        else
+            if result.answers.op == 1 then
+                newLyrics = wrapLyrics(originalLyrics)
+            end
+        end
+
+        local cleanedLyrics = newLyrics:gsub("\n", "")
         log("New lyrics are " .. cleanedLyrics)
+
         local showPreview = result.answers.pr
         if showPreview == true then
-            showRecursivelyCustomDialog(lyricEditor, result.answers.le)
+            showRecursivelyCustomDialog(lyricEditor, newLyrics)
         else
             applyLyrics(cleanedLyrics)
             SV:finish()
@@ -65,6 +89,67 @@ function showRecursivelyCustomDialog(lyricEditor,text)
             SV:finish()
         end
     end
+
+
+function tokenizeLyrics(language, lyrics)
+    log("Target language is " ..language)
+    local sillRules = loadSillRules(script_folder_name, language, OS)
+    local sillabateLyrics = ""
+    local rows = split(lyrics, "\n")
+    local rowCounter = 1
+    while rowCounter <= #rows do
+        local row = rows[rowCounter]
+        local words = split(row, " ")
+        local wordCounter = 1
+        while wordCounter <= #words do
+            local word = words[wordCounter]
+            word = string.lower(word)
+            local sillabes = convertToSillabe(sillRules, word)
+            local sillabeCounter = 1
+            while sillabeCounter <= #sillabes do
+                local sillabe = sillabes[sillabeCounter]
+                if sillabeCounter > 1 then
+                    sillabateLyrics = sillabateLyrics .. "-" .. sillabe
+                else
+                    sillabateLyrics = sillabateLyrics .. " " .. sillabe
+                end
+                sillabeCounter = sillabeCounter + 1
+            end
+            sillabateLyrics = sillabateLyrics .. " "
+            wordCounter = wordCounter + 1
+        end
+        sillabateLyrics = sillabateLyrics .. "\n"
+        rowCounter = rowCounter + 1
+    end
+    return sillabateLyrics
+end
+
+function wrapLyrics(lyrics)
+    local wrappedLyrics = ""
+    local rows = split(lyrics, "\n")
+    local rowCounter = 1
+    while rowCounter <= #rows do
+        local row = rows[rowCounter]
+        local words = split(row, " ")
+        local wordCounter = 1
+        while wordCounter <= #words do
+            local word = words[wordCounter]
+            word = string.lower(word)
+            local sillabes = split(word, "-")
+            local cleanedWord = word:gsub("%-", "")
+            for index, sillabe in ipairs(sillabes) do
+                if index > 1 then
+                    cleanedWord = cleanedWord .. " + "
+                end
+            end
+            wordCounter = wordCounter + 1
+            wrappedLyrics = wrappedLyrics .. " " .. cleanedWord
+        end
+        wrappedLyrics = wrappedLyrics .. "\n"
+        rowCounter = rowCounter + 1
+    end
+    return wrappedLyrics
+end
 
 function retrieveLyrics()
     local selection = SV:getMainEditor():getSelection()
@@ -95,6 +180,67 @@ function applyLyrics(cleanedLyrics)
         originalNote:setLyrics(newLyrics[realNoteCounter])
         realNoteCounter = realNoteCounter + 1
     end
+end
+
+function loadSillRules(folder, language, OS)
+    local sillRules = {}
+    local separator = OS == "Windows" and "\\" or "/"
+    local filePath = folder .. "languages" .. separator .. language .. "-syl.dic"
+    local file = io.open(filePath, "r")
+    log("Open Sillabe rule file " .. filePath)
+    if file then
+        for line in file:lines() do
+            if not line:find("^//") and line:match("%S") then
+                local ruleElement = {}
+                for word in line:gmatch("%S+") do
+                    table.insert(ruleElement, word)
+                end
+                local sillRule = {
+                    ruleType = ruleElement[1],
+                    pattern = ruleElement[2],
+                    count = tonumber(ruleElement[3])
+                }
+                log("Load sillabation rule " .. logElement(sillRule))
+                table.insert(sillRules, sillRule)
+            end
+        end
+        file:close()
+    else
+        error("Error loading rules file: " .. tostring(filePath))
+    end
+    return sillRules
+end
+
+function convertToSillabe(sillRules,word)
+    local sillabes = {}
+    local charCounter = 1
+
+    while charCounter <= #word do
+        local appliedRule = false
+        for _, sillRule in ipairs(sillRules) do
+            if word:match(sillRule.pattern) then
+                log("\tWord: " .. word .. " match with " .. logElement(sillRule))
+                word, sillabes = updateWord(word, charCounter, sillRule.count, sillabes)
+                appliedRule = true
+                break
+            end
+        end
+
+        if not appliedRule then
+            table.insert(sillabes, word:sub(charCounter, charCounter))
+            charCounter = charCounter + 1
+        end
+    end
+    return sillabes
+end
+
+
+function updateWord(word, i, x, sillabes)
+    local lastCharIndex= i + x -1
+    local extracted = word:sub(i, lastCharIndex)
+    log("\t\tExtracted: " .. extracted .. " (" .. i .. " --> ".. lastCharIndex ..")")
+    table.insert(sillabes, extracted)
+    return word:sub(i + x), sillabes
 end
 
 function determine_OS()
