@@ -23,14 +23,20 @@ function main()
         buttons = "OkCancel",
         widgets = {
             {
+                name = "le", type = "TextArea",
+                label = "Editor",
+                height = 300,
+                default = "Enter some more text here.\nAnother line.\nYet another line!",
+            },
+            {
                 name = "op", type = "ComboBox",
-                label = "Operation",
-                choices = {"Words to dreamtonics format", "Words to classic syllabes", "Syllabes to dreamtonics format"},
+                label = "Additional Operation",
+                choices = {"Nothing","Words to dreamtonics format", "Words to classic syllabes", "Syllabes to dreamtonics format"},
                 default = 0
             },
             {
                 name = "la", type = "ComboBox",
-                label = "Target Language",
+                label = "Syllabe Dictionary",
                 choices = {"English", "Japanese", "Spanish", "Mandarine","Cantonese"},
                 default = 0
             },
@@ -38,14 +44,7 @@ function main()
                 name = "pr", type = "CheckBox",
                 text = "Only preview",
                 default = true
-            },
-            {
-                name = "le", type = "TextArea",
-                label = "Editor",
-                height = 200,
-                default = "Enter some more text here.\nAnother line.\nYet another line!",
             }
-
         }
     }
     local currentLyrics = retrieveLyrics()
@@ -54,12 +53,12 @@ function main()
 end
 
 function showRecursivelyCustomDialog(lyricEditor,text)
-    lyricEditor.widgets[4].default = text
+    lyricEditor.widgets[1].default = text
     local result = SV:showCustomDialog(lyricEditor)
     if tostring(result.status) == "true" then
         local originalLyrics = result.answers.le
         local newLyrics = originalLyrics
-        if result.answers.op == 0 then
+        if result.answers.op == 1 then
             local langCodes = { "EN","JAP","SPA","MAN","CAN" }
             local language = langCodes[result.answers.la + 1]
             if string.find(text, "%+") then
@@ -70,7 +69,7 @@ function showRecursivelyCustomDialog(lyricEditor,text)
             end
 
         end
-        if result.answers.op == 1 then
+        if result.answers.op == 2 then
             local langCodes = { "EN","JAP","SPA","MAN","CAN" }
             local language = langCodes[result.answers.la + 1]
             if string.find(text, "%+") then
@@ -80,7 +79,7 @@ function showRecursivelyCustomDialog(lyricEditor,text)
                 newLyrics = tokenizeLyrics(language, originalLyrics)
             end
         end
-        if result.answers.op == 2 then
+        if result.answers.op == 3 then
             newLyrics = wrapLyrics(originalLyrics)
         end
         local cleanedLyrics = newLyrics:gsub("\n", "")
@@ -146,7 +145,7 @@ function wrapLyrics(lyrics)
             local cleanedWord = word:gsub("%-", "")
             for index, sillabe in ipairs(sillabes) do
                 if index > 1 then
-                    cleanedWord = cleanedWord .. " + "
+                    cleanedWord = cleanedWord .. " +"
                 end
             end
             wordCounter = wordCounter + 1
