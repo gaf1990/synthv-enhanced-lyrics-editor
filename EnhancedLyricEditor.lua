@@ -19,7 +19,7 @@ function main()
     log("Start processing notes")
     local lyricEditor = {
         title = "Lyrics Editor",
-        message = "Please choose operation!",
+        message = "Enhanced Mode",
         buttons = "OkCancel",
         widgets = {
             {
