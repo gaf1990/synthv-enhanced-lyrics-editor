@@ -25,7 +25,7 @@ function main()
             {
                 name = "op", type = "ComboBox",
                 label = "Operation",
-                choices = {"Sillabate words (from combination to com-bi-na-tion)", "Wrap words (from com-bi-na-tion to combination + + + )"},
+                choices = {"Words to dreamtonics format", "Words to classic syllabes", "Syllabes to dreamtonics format"},
                 default = 0
             },
             {
@@ -66,14 +66,23 @@ function showRecursivelyCustomDialog(lyricEditor,text)
                 SV:showOkCancelBox("Sillabation",
                         "Found \"+\" inside text. Please remove it before sillabating");
             else
+                newLyrics = wrapLyrics(tokenizeLyrics(language, originalLyrics))
+            end
+
+        end
+        if result.answers.op == 1 then
+            local langCodes = { "EN","JAP","SPA","MAN","CAN" }
+            local language = langCodes[result.answers.la + 1]
+            if string.find(text, "%+") then
+                SV:showOkCancelBox("Sillabation",
+                        "Found \"+\" inside text. Please remove it before sillabating");
+            else
                 newLyrics = tokenizeLyrics(language, originalLyrics)
             end
-        else
-            if result.answers.op == 1 then
-                newLyrics = wrapLyrics(originalLyrics)
-            end
         end
-
+        if result.answers.op == 2 then
+            newLyrics = wrapLyrics(originalLyrics)
+        end
         local cleanedLyrics = newLyrics:gsub("\n", "")
         log("New lyrics are " .. cleanedLyrics)
 
@@ -82,14 +91,12 @@ function showRecursivelyCustomDialog(lyricEditor,text)
             showRecursivelyCustomDialog(lyricEditor, newLyrics)
         else
             applyLyrics(cleanedLyrics)
-            SV:finish()
         end
-        else
-            log ("End script")
-            SV:finish()
-        end
+    else
+        log ("End script")
     end
-
+    SV:finish()
+end
 
 function tokenizeLyrics(language, lyrics)
     log("Target language is " ..language)
