@@ -17,17 +17,6 @@ function main()
     log("OS: " .. OS)
 
     log("Start processing notes")
-    local selection = SV:getMainEditor():getSelection()
-    local selectedNotes = selection:getSelectedNotes()
-    local realNoteCounter = 1;
-    local selectedLyrics = ""
-    while realNoteCounter <= #selectedNotes do
-        local originalNote = selectedNotes[realNoteCounter]
-        local lyric = originalNote:getLyrics()
-        selectedLyrics = selectedLyrics .. " " .. originalNote:getLyrics()
-        realNoteCounter = realNoteCounter + 1;
-    end
-
     local lyricEditor = {
         title = "Lyrics Editor",
         message = "Please choose operation!",
@@ -40,17 +29,72 @@ function main()
                 default = 2
             },
             {
+                name = "pr", type = "CheckBox",
+                text = "Show preview",
+                default = false
+            },
+            {
                 name = "le", type = "TextArea",
                 label = "Editor",
                 height = 200,
                 default = "Enter some more text here.\nAnother line.\nYet another line!",
             }
+
         }
     }
-    lyricEditor.widgets[2].default = selectedLyrics
+    local currentLyrics = retrieveLyrics()
+    showRecursivelyCustomDialog(lyricEditor, currentLyrics)
+end
+
+function showRecursivelyCustomDialog(lyricEditor,text)
+    lyricEditor.widgets[3].default = text
 
     local result = SV:showCustomDialog(lyricEditor)
-    SV:finish()
+    if tostring(result.status) == "true" then
+        local cleanedLyrics = result.answers.le:gsub("\n", "")
+        log("New lyrics are " .. cleanedLyrics)
+        local showPreview = result.answers.pr
+        if showPreview == true then
+            showRecursivelyCustomDialog(lyricEditor, result.answers.le)
+        else
+            applyLyrics(cleanedLyrics)
+            SV:finish()
+        end
+        else
+            log ("End script")
+            SV:finish()
+        end
+    end
+
+function retrieveLyrics()
+    local selection = SV:getMainEditor():getSelection()
+    local selectedNotes = selection:getSelectedNotes()
+    local realNoteCounter = 1;
+    local selectedLyrics = ""
+    local carriageCounter = 0;
+    while realNoteCounter <= #selectedNotes do
+        local originalNote = selectedNotes[realNoteCounter]
+        selectedLyrics = selectedLyrics .. " " .. originalNote:getLyrics()
+        if  carriageCounter == 10 then
+            selectedLyrics = selectedLyrics .. "\n"
+            carriageCounter = 0
+        end
+        carriageCounter = carriageCounter + 1
+        realNoteCounter = realNoteCounter + 1
+    end
+    return selectedLyrics
+end
+
+function applyLyrics(cleanedLyrics)
+    local selection = SV:getMainEditor():getSelection()
+    local selectedNotes = selection:getSelectedNotes()
+    local realNoteCounter = 1;
+    local newLyrics = split(cleanedLyrics," ")
+    while realNoteCounter <= #selectedNotes do
+        local originalNote = selectedNotes[realNoteCounter]
+        originalNote:setLyrics(newLyrics[realNoteCounter])
+        realNoteCounter = realNoteCounter + 1
+    end
 end
 
 function determine_OS()
