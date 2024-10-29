@@ -59,7 +59,7 @@ function showRecursivelyCustomDialog(lyricEditor,text)
         local originalLyrics = result.answers.le
         local newLyrics = originalLyrics
         if result.answers.op == 1 then
-            local langCodes = { "EN","JAP","SPA","MAN","CAN","IT" }
+            local langCodes = { "EN","JAP","SPA","MAN","CAN","IT"}
             local language = langCodes[result.answers.la + 1]
             if string.find(text, "%+") then
                 SV:showOkCancelBox("Sillabation",
@@ -70,7 +70,7 @@ function showRecursivelyCustomDialog(lyricEditor,text)
 
         end
         if result.answers.op == 2 then
-            local langCodes = { "EN","JAP","SPA","MAN","CAN" }
+            local langCodes =  { "EN","JAP","SPA","MAN","CAN","IT"}
             local language = langCodes[result.answers.la + 1]
             if string.find(text, "%+") then
                 SV:showOkCancelBox("Sillabation",
@@ -98,7 +98,7 @@ function showRecursivelyCustomDialog(lyricEditor,text)
 end
 
 function tokenizeLyrics(language, lyrics)
-    log("Target language is " ..language)
+    log("Target language is " .. language)
     local sillRules = loadSillRules(script_folder_name, language, OS)
     local sillabateLyrics = ""
     local rows = split(lyrics, "\n")
