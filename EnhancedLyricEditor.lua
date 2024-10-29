@@ -37,7 +37,7 @@ function main()
             {
                 name = "la", type = "ComboBox",
                 label = "Syllabe Dictionary",
-                choices = {"English", "Japanese", "Spanish", "Mandarine","Cantonese"},
+                choices = {"English", "Japanese", "Spanish", "Mandarine","Cantonese","Italiano"},
                 default = 0
             },
             {
@@ -59,7 +59,7 @@ function showRecursivelyCustomDialog(lyricEditor,text)
         local originalLyrics = result.answers.le
         local newLyrics = originalLyrics
         if result.answers.op == 1 then
-            local langCodes = { "EN","JAP","SPA","MAN","CAN" }
+            local langCodes = { "EN","JAP","SPA","MAN","CAN","IT" }
             local language = langCodes[result.answers.la + 1]
             if string.find(text, "%+") then
                 SV:showOkCancelBox("Sillabation",
