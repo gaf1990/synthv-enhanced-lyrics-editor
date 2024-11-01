@@ -5,8 +5,8 @@ function getClientInfo()
         name = "Enhanced Lyric Editor",
         category = "GAF Utilities",
         author = "Giuseppe Andrea Ferraro",
-        versionNumber = 1,
-        minEditorVersion = 2
+        versionNumber = 2,
+        minEditorVersion = 0
     }
 end
 
@@ -23,6 +23,12 @@ function main()
         buttons = "OkCancel",
         widgets = {
             {
+                name = "mo", type = "ComboBox",
+                label = "Mode",
+                choices = {"Lyrics","Phonemes"},
+                default = 0
+            },
+            {
                 name = "le", type = "TextArea",
                 label = "Editor",
                 height = 300,
@@ -30,66 +36,101 @@ function main()
             },
             {
                 name = "op", type = "ComboBox",
-                label = "Additional Operation",
+                label = "Lyrics Operation (applicable only on Lyrics View}",
                 choices = {"Nothing","Words to dreamtonics format", "Words to classic syllabes", "Syllabes to dreamtonics format"},
                 default = 0
             },
             {
                 name = "la", type = "ComboBox",
-                label = "Syllabe Dictionary",
+                label = "Target Language",
                 choices = {"English", "Japanese", "Spanish", "Mandarine","Cantonese","Italiano"},
                 default = 0
+            },
+            {
+                name = "from", type = "TextBox",
+                label = "From",
+                default = ""
+            },
+            {
+                name = "to", type = "TextBox",
+                label = "To",
+                default = ""
             },
             {
                 name = "pr", type = "CheckBox",
                 text = "Only preview",
                 default = true
-            }
+            },
+
+
         }
     }
-    local currentLyrics = retrieveLyrics()
+    local currentLyrics = retrieveLyrics(0,0,0)
     log("Selected lyrics is " .. currentLyrics)
     showRecursivelyCustomDialog(lyricEditor, currentLyrics)
 end
 
-function showRecursivelyCustomDialog(lyricEditor,text)
-    lyricEditor.widgets[1].default = text
+function showRecursivelyCustomDialog(lyricEditor,text,mode,language)
+    lyricEditor.widgets[1].default = mode
+    lyricEditor.widgets[2].default = text
+    lyricEditor.widgets[3].default = language
     local result = SV:showCustomDialog(lyricEditor)
     if tostring(result.status) == "true" then
         local originalLyrics = result.answers.le
+        local newMode = result.answers.mo
+        log("Result answer mode is " .. newMode)
+        if newMode == 1 then
+            log("Load Phonemes")
+            originalLyrics = retrieveLyrics(newMode)
+        end
         local newLyrics = originalLyrics
         if result.answers.op == 1 then
-            local langCodes = { "EN","JAP","SPA","MAN","CAN","IT"}
-            local language = langCodes[result.answers.la + 1]
-            if string.find(text, "%+") then
-                SV:showOkCancelBox("Sillabation",
-                        "Found \"+\" inside text. Please remove it before sillabating");
+            if newMode == 1 then
+                local langCodes = { "EN","JAP","SPA","MAN","CAN","IT"}
+                local language = langCodes[result.answers.la + 1]
+                if string.find(text, "%+") then
+                    SV:showOkCancelBox("Sillabation",
+                            "Found \"+\" inside text. Please remove it before sillabating");
+                else
+                    newLyrics = wrapLyrics(tokenizeLyrics(language, originalLyrics))
+                end
             else
-                newLyrics = wrapLyrics(tokenizeLyrics(language, originalLyrics))
+                SV:showOkCancelBox("Sillabation",
+                        "Please switch to lyrics view before sillabate");
             end
-
         end
         if result.answers.op == 2 then
-            local langCodes =  { "EN","JAP","SPA","MAN","CAN","IT"}
-            local language = langCodes[result.answers.la + 1]
-            if string.find(text, "%+") then
-                SV:showOkCancelBox("Sillabation",
-                        "Found \"+\" inside text. Please remove it before sillabating");
+            if newMode == 1 then
+                local langCodes =  { "EN","JAP","SPA","MAN","CAN","IT"}
+                local language = langCodes[result.answers.la + 1]
+                if string.find(text, "%+") then
+                    SV:showOkCancelBox("Sillabation",
+                            "Found \"+\" inside text. Please remove it before sillabating");
+                else
+                    newLyrics = tokenizeLyrics(language, originalLyrics)
+                end
             else
-                newLyrics = tokenizeLyrics(language, originalLyrics)
+                SV:showOkCancelBox("Sillabation",
+                        "Please switch to lyrics view before sillabate");
             end
         end
         if result.answers.op == 3 then
-            newLyrics = wrapLyrics(originalLyrics)
+            if newMode == 1 then
+                newLyrics = wrapLyrics(originalLyrics)
+            else
+                SV:showOkCancelBox("Wrapper",
+                        "Please switch to lyrics view before wrap world");
+            end
         end
+        newLyrics = replaceLyrics(originalLyrics, result.answers.from, result.answers.to)
         local cleanedLyrics = newLyrics:gsub("\n", "")
         log("New lyrics are " .. cleanedLyrics)
 
         local showPreview = result.answers.pr
         if showPreview == true then
-            showRecursivelyCustomDialog(lyricEditor, newLyrics)
+            showRecursivelyCustomDialog(lyricEditor, newLyrics,newMode,result.answers.la)
         else
-            applyLyrics(cleanedLyrics)
+            applyLyrics(cleanedLyrics, newMode)
         end
     else
         log ("End script")
@@ -157,15 +198,22 @@ function wrapLyrics(lyrics)
     return wrappedLyrics
 end
 
-function retrieveLyrics()
+function retrieveLyrics(mode)
     local selection = SV:getMainEditor():getSelection()
     local selectedNotes = selection:getSelectedNotes()
+    local scope = SV:getMainEditor():getCurrentGroup();
+    local phonemes = SV:getPhonemesForGroup(scope);
     local realNoteCounter = 1;
     local selectedLyrics = ""
     local carriageCounter = 0;
     while realNoteCounter <= #selectedNotes do
         local originalNote = selectedNotes[realNoteCounter]
-        selectedLyrics = selectedLyrics .. " " .. originalNote:getLyrics()
+        if mode == 0 then
+            selectedLyrics = selectedLyrics .. originalNote:getLyrics() .. " "
+        end
+        if mode == 1 then
+            selectedLyrics = selectedLyrics .. "{" .. phonemes[realNoteCounter + selectedNotes[1]:getIndexInParent() - 1] .. "} "
+        end
         if  carriageCounter == 10 then
             selectedLyrics = selectedLyrics .. "\n"
             carriageCounter = 0
@@ -176,14 +224,25 @@ function retrieveLyrics()
     return selectedLyrics
 end
 
-function applyLyrics(cleanedLyrics)
+function applyLyrics(cleanedLyrics, mode)
     local selection = SV:getMainEditor():getSelection()
     local selectedNotes = selection:getSelectedNotes()
     local realNoteCounter = 1;
     local newLyrics = split(cleanedLyrics," ")
+    if mode == 1 then
+        newLyrics = split(cleanedLyrics,"{")
+    end
+
     while realNoteCounter <= #selectedNotes do
         local originalNote = selectedNotes[realNoteCounter]
-        originalNote:setLyrics(newLyrics[realNoteCounter])
+        if mode == 0 then
+            originalNote:setLyrics(newLyrics[realNoteCounter])
+        end
+        if mode == 1 then
+            local cleanedPhonemes = replaceLyrics(replaceLyrics(newLyrics[realNoteCounter],"{",""),"}","")
+            log("cleanPhonemes is " ..  cleanedPhonemes )
+            originalNote:setPhonemes(cleanedPhonemes)
+        end
         realNoteCounter = realNoteCounter + 1
     end
 end
@@ -240,6 +299,14 @@ function convertToSillabe(sillRules,word)
     return sillabes
 end
 
+function replaceLyrics(lyrics, from, to)
+    return string.gsub(lyrics, from,to)
+end
+
+function ltrim(s)
+    return s:match'^%s*(.*)'
+end
+
 
 function updateWord(word, i, x, sillabes)
     local lastCharIndex= i + x -1
@@ -247,6 +314,25 @@ function updateWord(word, i, x, sillabes)
     log("\t\tExtracted: " .. extracted .. " (" .. i .. " --> ".. lastCharIndex ..")")
     table.insert(sillabes, extracted)
     return word:sub(i + x), sillabes
+end
+
+function getLanguageOverride(language)
+    if language == "cantonese" then
+        return "CAN"
+    end
+    if language == "spanish" then
+        return "SPA"
+    end
+    if language == "japanese" then
+        return "GIA"
+    end
+    if language == "english" then
+        return "ENG"
+    end
+    if language == "mandarine" then
+        return "MAN"
+    end
+    return "GIA"
 end
 
 function determine_OS()
