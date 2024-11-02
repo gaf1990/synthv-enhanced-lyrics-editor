@@ -83,46 +83,51 @@ function showRecursivelyCustomDialog(lyricEditor,text,mode,language)
             log("Load Phonemes")
             originalLyrics = retrieveLyrics(newMode)
         end
+
         local newLyrics = originalLyrics
+
         if result.answers.op == 1 then
-            if newMode == 1 then
+            if newMode == 0 then
                 local langCodes = { "EN","JAP","SPA","MAN","CAN","IT"}
-                local language = langCodes[result.answers.la + 1]
+                local newLanguage = langCodes[result.answers.la + 1]
                 if string.find(text, "%+") then
                     SV:showOkCancelBox("Sillabation",
                             "Found \"+\" inside text. Please remove it before sillabating");
                 else
-                    newLyrics = wrapLyrics(tokenizeLyrics(language, originalLyrics))
+                    newLyrics = wrapLyrics(tokenizeLyrics(newLanguage, originalLyrics))
                 end
             else
                 SV:showOkCancelBox("Sillabation",
                         "Please switch to lyrics view before sillabate");
             end
         end
+
         if result.answers.op == 2 then
-            if newMode == 1 then
+            if newMode == 0 then
                 local langCodes =  { "EN","JAP","SPA","MAN","CAN","IT"}
-                local language = langCodes[result.answers.la + 1]
+                local newLanguage = langCodes[result.answers.la + 1]
                 if string.find(text, "%+") then
                     SV:showOkCancelBox("Sillabation",
                             "Found \"+\" inside text. Please remove it before sillabating");
                 else
-                    newLyrics = tokenizeLyrics(language, originalLyrics)
+                    newLyrics = tokenizeLyrics(newLanguage, originalLyrics)
                 end
             else
                 SV:showOkCancelBox("Sillabation",
                         "Please switch to lyrics view before sillabate");
             end
         end
+
         if result.answers.op == 3 then
-            if newMode == 1 then
+            if newMode == 0 then
                 newLyrics = wrapLyrics(originalLyrics)
             else
                 SV:showOkCancelBox("Wrapper",
                         "Please switch to lyrics view before wrap world");
             end
         end
-        newLyrics = replaceLyrics(originalLyrics, result.answers.from, result.answers.to)
+
+        newLyrics = replaceLyrics(newLyrics, result.answers.from, result.answers.to)
         local cleanedLyrics = newLyrics:gsub("\n", "")
         log("New lyrics are " .. cleanedLyrics)
 
